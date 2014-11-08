@@ -1,20 +1,17 @@
 require "httparty"
 require 'soundcloud'
 
-require_relative 'credentials'
-require_relative 'logger'
+def safe_name(name)
+  name.gsub('/', ' ')
+end
 
-# \todo replace with input args
-credentials_filepath = 'credentials'
-user_name = 'bdajeje'
-save_folder = '/home/jeje/Desktop/soundcloud' # No '/' at the end
-
-# Logger
-logger = Logger.new(:all)
+credential  = ARGV.shift
+user_name   = ARGV.shift
+save_folder = ARGV.shift
+save_folder.chomp! if save_folder.end_with?('/')
 
 # Create a client object with your app credentials
-credentials = Credentials.new(credentials_filepath)
-client = Soundcloud.new(:client_id => credentials.client_id)
+client = Soundcloud.new(:client_id => credential)
 
 # Find all user playlists
 user_playlists = client.get('/playlists', :user_id => user_name)
@@ -23,32 +20,32 @@ user_playlists = client.get('/playlists', :user_id => user_name)
 user_playlists.each do |playlist|
   playlist_name = playlist[:title]
   tracks = playlist.tracks
-  logger.log(:info, "Playlist - '#{playlist_name}' / #{tracks.size} tracks")
+  puts "Playlist - '#{playlist_name}' / #{tracks.size} tracks"
 
-  playlist_destination = "#{save_folder}/#{playlist_name.gsub('/', ' ')}/"
+  playlist_destination = "#{save_folder}/#{safe_name(playlist_name)}"
+
+  # Check if playlist directory exists, if not create it
+  Dir.mkdir(playlist_destination) unless File.exists?(playlist_destination)
 
   tracks.each do |track|
     name = track.title
-    logger.log(:info, "Track - #{name}")
+    puts "Track - #{name}"
 
-    if File.exists?( "#{playlist_destination}/#{name}" )
-      logger.log(:info, 'already exists')
+    file_path = "#{playlist_destination}/#{safe_name(name)}.mp3"
+    if File.exists?( file_path )
+      puts 'already exists'
       next
     end
 
     download_url = track.download_url
     if !download_url || download_url.empty?
-      logger.log(:info, 'not available for download')
+      puts 'not available for download'
       next
     end
 
-    puts track.methods.sort
-    puts track.type
-    sdf
-
-    # logger.log(:info, "Downloading it...")
-    # File.open("#{save_folder}/#{name}.mp3", "wb") do |f|
-    #   f.write HTTParty.get("https://api.soundcloud.com/tracks/159842862/download?client_id=#{credentials.client_id}").parsed_response
-    # end
+    puts "Downloading it..."
+    File.open(file_path, "wb") do |f|
+      f.write HTTParty.get("https://api.soundcloud.com/tracks/159842862/download?client_id=#{credential}").parsed_response
+    end
   end
 end
