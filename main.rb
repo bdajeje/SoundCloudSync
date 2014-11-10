@@ -45,7 +45,7 @@ user_playlists.each do |playlist|
 
     puts "Downloading it..."
     File.open(file_path, "wb") do |f|
-      f.write HTTParty.get("https://api.soundcloud.com/tracks/159842862/download?client_id=#{credential}").parsed_response
+      f.write HTTParty.get("https://api.soundcloud.com/tracks/#{track.id}/download?client_id=#{credential}").parsed_response
     end
   end
 end
