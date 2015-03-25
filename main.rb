@@ -8,7 +8,7 @@ end
 credential  = ARGV.shift
 user_name   = ARGV.shift
 save_folder = ARGV.shift
-save_folder.chomp! if save_folder.end_with?('/')
+#save_folder.chomp! if save_folder.end_with?('/')
 
 # Create a client object with your app credentials
 client = Soundcloud.new(:client_id => credential)
