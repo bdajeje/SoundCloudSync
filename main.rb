@@ -5,10 +5,18 @@ def safe_name(name)
   name.gsub('/', ' ')
 end
 
+# Arguments validation
+if ARGV.length < 3
+  puts "Usage:"
+  puts "  ruby main.rb credential user_name save_folder"
+  exit
+end
+
+# Arguments extraction
 credential  = ARGV.shift
 user_name   = ARGV.shift
 save_folder = ARGV.shift
-#save_folder.chomp! if save_folder.end_with?('/')
+save_folder = save_folder.chomp if save_folder.end_with?('/')
 
 # Create a client object with your app credentials
 client = Soundcloud.new(:client_id => credential)
@@ -20,7 +28,8 @@ user_playlists = client.get('/playlists', :user_id => user_name)
 user_playlists.each do |playlist|
   playlist_name = playlist[:title]
   tracks = playlist.tracks
-  puts "Playlist - '#{playlist_name}' / #{tracks.size} tracks"
+  puts "------------| Playlist - '#{playlist_name}' / #{tracks.size} tracks |------------"
+  puts
 
   playlist_destination = "#{save_folder}/#{safe_name(playlist_name)}"
 
@@ -34,12 +43,14 @@ user_playlists.each do |playlist|
     file_path = "#{playlist_destination}/#{safe_name(name)}.mp3"
     if File.exists?( file_path )
       puts 'already exists'
+      puts
       next
     end
 
     download_url = track.download_url
     if !download_url || download_url.empty?
       puts 'not available for download'
+      puts
       next
     end
 
