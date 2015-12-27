@@ -1,24 +1,30 @@
 #!/usr/bin/env ruby
 
-require "httparty"
+require 'httparty'
+require 'json'
 require 'soundcloud'
+
+trap("SIGINT") { throw :ctrl_c }
 
 def safe_name(name)
   name.gsub('/', ' ')
 end
 
 # Arguments validation
-if ARGV.length < 3
+if ARGV.length < 1
   puts "Usage:"
-  puts "  ruby main.rb credential user_name save_folder"
+  puts "  ruby main.rb save_folder"
   exit
 end
 
 # Arguments extraction
-credential  = ARGV.shift
-user_name   = ARGV.shift
 save_folder = ARGV.shift
-save_folder = save_folder.chomp if save_folder.end_with?('/')
+save_folder = save_folder.chomp('/') if save_folder.end_with?('/')
+
+# Read credentials from file (credentials.json)
+credentials = JSON.parse(File.read('credentials.json'))
+credential  = credentials['credential'];
+user_name   = credentials['user_name'];
 
 # Create a client object with your app credentials
 client = Soundcloud.new(:client_id => credential)
@@ -27,38 +33,47 @@ client = Soundcloud.new(:client_id => credential)
 user_playlists = client.get('/playlists', :user_id => user_name)
 
 # Go throw each playlist to download their tracks
-user_playlists.each do |playlist|
-  playlist_name = playlist[:title]
-  tracks = playlist.tracks
-  puts "------------| Playlist - '#{playlist_name}' / #{tracks.size} tracks |------------"
-  puts
-
-  playlist_destination = "#{save_folder}/#{safe_name(playlist_name)}"
-
-  # Check if playlist directory exists, if not create it
-  Dir.mkdir(playlist_destination) unless File.exists?(playlist_destination)
-
-  tracks.each do |track|
-    name = track.title
-    puts "Track - #{name}"
-
-    file_path = "#{playlist_destination}/#{safe_name(name)}.mp3"
-    if File.exists?( file_path )
-      puts 'already exists'
+catch :ctrl_c do
+  file_path = ''
+  begin
+    user_playlists.each do |playlist|
+      playlist_name = playlist[:title]
+      tracks = playlist.tracks
+      puts "------------| Playlist - '#{playlist_name}' / #{tracks.size} tracks |------------"
       puts
-      next
-    end
 
-    download_url = track.download_url
-    if !download_url || download_url.empty?
-      puts 'not available for download'
-      puts
-      next
-    end
+      playlist_destination = "#{save_folder}/#{safe_name(playlist_name)}"
 
-    puts "Downloading it..."
-    File.open(file_path, "wb") do |f|
-      f.write HTTParty.get("https://api.soundcloud.com/tracks/#{track.id}/download?client_id=#{credential}").parsed_response
+      # Check if playlist directory exists, if not create it
+      Dir.mkdir(playlist_destination) unless File.exists?(playlist_destination)
+
+      tracks.each do |track|
+        name = track.title
+        puts "Track - #{name}"
+
+        file_path = "#{playlist_destination}/#{safe_name(name)}.mp3"
+        if File.exists?( file_path )
+          puts 'already exists'
+          puts
+          next
+        end
+
+        download_url = track.download_url
+        if !download_url || download_url.empty?
+          puts 'not available for download'
+          puts
+          next
+        end
+
+        puts "Downloading it..."
+        File.open(file_path, "wb") do |f|
+          f.write HTTParty.get("https://api.soundcloud.com/tracks/#{track.id}/download?client_id=#{credential}").parsed_response
+        end
+      end
     end
+  ensure
+    # Remove not finished download file
+    puts "#{file_path} unfinised doaload, deleting file"
+    File.delete(file_path)
   end
 end
