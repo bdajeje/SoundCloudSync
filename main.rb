@@ -8,6 +8,7 @@ trap("SIGINT") { throw :ctrl_c }
 
 def safe_name(name)
   name.gsub('/', ' ')
+      .gsub('|', ' ')
 end
 
 # Arguments validation
@@ -36,10 +37,10 @@ user_playlists = client.get('/playlists', :user_id => user_name)
 catch :ctrl_c do
   file_path = ''
   begin
-    user_playlists.each do |playlist|
+    user_playlists.each_with_index do |playlist, playlist_index|
       playlist_name = playlist[:title]
       tracks = playlist.tracks
-      puts "------------| Playlist - '#{playlist_name}' / #{tracks.size} tracks |------------"
+      puts "------------| Playlist (#{playlist_index + 1}/#{user_playlists.size}) - '#{playlist_name}' / #{tracks.size} tracks |------------"
       puts
 
       playlist_destination = "#{save_folder}/#{safe_name(playlist_name)}"
@@ -47,9 +48,9 @@ catch :ctrl_c do
       # Check if playlist directory exists, if not create it
       Dir.mkdir(playlist_destination) unless File.exists?(playlist_destination)
 
-      tracks.each do |track|
+      tracks.each_with_index do |track, index|
         name = track.title
-        puts "Track - #{name}"
+        puts "[Track - #{track.id}] #{name} (#{index + 1}/#{tracks.size})"
 
         file_path = "#{playlist_destination}/#{safe_name(name)}.mp3"
         if File.exists?( file_path )
@@ -66,14 +67,17 @@ catch :ctrl_c do
         end
 
         puts "Downloading it..."
+        puts
         File.open(file_path, "wb") do |f|
           f.write HTTParty.get("https://api.soundcloud.com/tracks/#{track.id}/download?client_id=#{credential}").parsed_response
         end
       end
     end
-  ensure
+  rescue => detail
+    puts "Exception: #{detail}"
+
     # Remove not finished download file
-    puts "#{file_path} unfinised doaload, deleting file"
+    puts "#{file_path} unfinised download, deleting file"
     File.delete(file_path)
   end
 end
